@@ -7,6 +7,7 @@ A small family money app for the phone. Husband and wife share one live view of:
 - Spending, per person and per category
 - One family budget per category
 - Shared savings goals, with how long each goal will take
+- Money to pay back (for example to parents), with a progress picture and message to share
 - A savings forecast for 3, 6 and 12 months
 
 Money is in RM. Open the page on the phone and use "Add to Home Screen" to install it as an app.

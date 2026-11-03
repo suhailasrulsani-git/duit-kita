@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Duit Kita</title>
-<meta name="description" content="Family money: salary, commitments, spending, budget and savings goals.">
+<meta name="description" content="Family money: salary, commitments, spending, budget, savings goals and money to pay back.">
 <meta name="theme-color" content="#0f766e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -104,6 +104,14 @@
   .goal-time { font-size: 13px; margin: 6px 0 8px; }
   .adds { margin-bottom: 8px; }
   .adds .row button { border: 0; background: none; color: var(--muted); cursor: pointer; width: 32px; height: 28px; font-size: 18px; }
+  .sec { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 4px 0 10px; }
+  .sec h2 { font-size: 16px; margin: 0; }
+  .sec.next { margin-top: 24px; }
+  .card > h3 + .item { border-top: 0; }
+  a.btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+  a.btn.primary { color: var(--brand-ink); }
+  .share-img { display: block; width: 100%; max-width: 300px; height: auto; margin: 0 auto; border: 1px solid var(--line); border-radius: 12px; }
+  .share-txt { white-space: pre-wrap; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 12px 0 0; }
 
   .tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
   .tabs .in { display: flex; max-width: 560px; margin: 0 auto; }
@@ -166,6 +174,8 @@ const MONEY = new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR
 const MONEY0 = new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const rm = n => MONEY.format(n || 0);
 const rm0 = n => MONEY0.format(n || 0);
+// share message: RM 500 for whole amounts, RM 500.50 otherwise
+const rmS = n => Number.isInteger(n) ? rm0(n) : rm(n);
 const num = v => { const n = Math.round(parseFloat(String(v ?? '').replace(/[,\s]/g, '')) * 100) / 100; return isFinite(n) ? n : NaN; };
 const sum = (list, f) => Math.round(list.reduce((t, x) => t + (+f(x) || 0), 0) * 100) / 100;
 const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -184,6 +194,8 @@ function dayName(d) {
   const [a, b, c] = d.split('-').map(Number);
   return new Date(a, b - 1, c).toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
 }
+// Malay date for the share message: 3 November 2026
+const msDate = d => { const [a, b, c] = d.split('-').map(Number); return new Date(a, b - 1, c).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' }); };
 
 let toastTimer;
 function toast(msg) {
@@ -195,7 +207,7 @@ function toast(msg) {
 const put = p => Promise.resolve(p).catch(e => toast('Not saved: ' + ((e && (e.code || e.message)) || e)));
 
 // ---------- data stores ----------
-// Collections under households/main: members, categories, commitments, spending, goals, goalAdds
+// Collections under households/main: members, categories, commitments, spending, goals, goalAdds, debts, debtPays
 
 // Demo store: this phone only. Used while firebase-config.js still has the PASTE values.
 function demoStore() {
@@ -262,10 +274,10 @@ async function firebaseStore(cfg) {
 }
 
 // ---------- state ----------
-const LISTS = ['members', 'categories', 'commitments', 'goals', 'goalAdds'];
+const LISTS = ['members', 'categories', 'commitments', 'goals', 'goalAdds', 'debts', 'debtPays'];
 const S = {
   store: null, user: null, me: '', month: thisMonth(), tab: 'home', who: 'all', lastCat: '',
-  members: [], categories: [], commitments: [], spending: [], goals: [], goalAdds: [],
+  members: [], categories: [], commitments: [], spending: [], goals: [], goalAdds: [], debts: [], debtPays: [],
   unsub: [], unsubSpend: null, spendFrom: ''
 };
 
@@ -319,6 +331,10 @@ const commitIn = (m, who) => sum(commitsIn(m, who), c => c.amount);
 const spentIn = (m, who) => sum(S.spending.filter(s => s.month === m && (!who || s.who === who)), s => s.amount);
 const catSpent = (id, m) => sum(S.spending.filter(s => s.month === m && s.cat === id), s => s.amount);
 const goalSaved = g => Math.round(((+g.start || 0) + sum(S.goalAdds.filter(a => a.goal === g.id), a => a.amount)) * 100) / 100;
+// money to pay back: "paid already" + every payment, newest payment first
+const paysOf = d => S.debtPays.filter(p => p.debt === d.id).sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
+const debtPaid = d => Math.round(((+d.start || 0) + sum(paysOf(d), p => p.amount)) * 100) / 100;
+const byAt = list => [...list].sort((a, b) => (a.at || 0) - (b.at || 0));
 
 // usual monthly spending: average of the last 3 full months that have spending, else the budget, else this month so far
 function usualSpend() {
@@ -348,11 +364,26 @@ function goalInfo(g, familyMonthly) {
   return { saved, target, left, time };
 }
 
+function debtInfo(d) {
+  const paid = debtPaid(d), total = +d.total || 0, left = Math.max(0, Math.round((total - paid) * 100) / 100);
+  const pct = total > 0 ? Math.min(100, Math.floor(paid * 100 / total + 1e-9)) : 0;
+  let time;
+  if (left <= 0) time = 'All paid back.';
+  else if (d.monthly > 0) { const n = Math.ceil(left / d.monthly); time = `About ${plural(n, 'month')} to go, by ${monthName(addM(thisMonth(), n))}, paying ${rm(d.monthly)} a month.`; }
+  else time = 'Set a monthly amount to see how long it takes.';
+  return { paid, total, left, pct, time };
+}
+
 function bar(v, max, kind) {
   const pct = max > 0 ? Math.min(100, v / max * 100) : 0;
   const c = kind || (v > max ? 'bad' : pct >= 80 ? 'warn' : '');
   return `<div class="bar"><i class="${c}" style="width:${pct.toFixed(1)}%"></i></div>`;
 }
+
+// one progress line for a goal or a debt: name, "RM x of RM y", bar, short note
+const progItem = (act, id, name, have, total, note, top) => `<button class="item col"${top ? ' style="padding-top:0"' : ''} data-act="${act}" data-id="${esc(id)}">
+  <span class="line"><b>${esc(name)}</b><span class="amt">${rm(have)} <small class="inline">of ${rm(total)}</small></span></span>
+  ${bar(have, total, 'goal')}${note ? `<small>${esc(note)}</small>` : ''}</button>`;
 
 // ---------- views ----------
 function viewHome() {
@@ -360,6 +391,7 @@ function viewHome() {
   const hints = [];
   if (!S.members.some(p => salaryIn(p, m) > 0)) hints.push('Add your net salary in <a href="#" data-act="tab" data-id="people">People</a>.');
   if (!S.categories.length) hints.push('Add your spending categories in <a href="#" data-act="tab" data-id="budget">Budget</a>.');
+  if (!S.goals.length && !S.debts.length) hints.push('Add savings goals or money to pay back in <a href="#" data-act="tab" data-id="goals">Goals</a>.');
 
   // one column per person, side by side
   const ppl = membersSorted().map(p => ({ p, i: incomeIn(m, p.id), c: commitIn(m, p.id), s: spentIn(m, p.id) }));
@@ -369,20 +401,24 @@ function viewHome() {
     <tbody><tr><td>Salary</td>${cells(x => x.i)}</tr><tr><td>Commitments</td>${cells(x => x.c)}</tr><tr><td>Spent</td>${cells(x => x.s)}</tr>
     <tr class="total"><td>Left</td>${cells(x => x.i - x.c - x.s)}</tr></tbody></table></section>`;
 
-  const limited = S.categories.filter(c => c.limit > 0);
-  const lim = sum(limited, c => c.limit), used = sum(limited, c => catSpent(c.id, m));
-  const over = limited.filter(c => catSpent(c.id, m) > c.limit);
-  const budget = !S.categories.length ? '' : `<section class="card"><h3>Budget</h3>${lim
-    ? `${bar(used, lim)}<div class="row"><span>${rm(used)} of ${rm(lim)}</span><b class="${used > lim ? 'neg' : ''}">${used > lim ? rm(used - lim) + ' over' : rm(lim - used) + ' left'}</b></div>`
-    : '<p class="muted">No monthly limits set yet.</p>'}${over.length ? `<p class="muted neg">Over budget: ${over.map(c => esc(c.name)).join(', ')}</p>` : ''}</section>`;
-
+  // goals and money to pay back, short; tap one to open it on Goals
   const f = forecast();
+  const goals = !S.goals.length ? '' : `<section class="card" id="homeGoals"><h3>Goals</h3>${byAt(S.goals).map(g => {
+    const i = goalInfo(g, f.monthly);
+    return progItem('goto', g.id, g.name, i.saved, i.target, i.left > 0 ? `${rm(i.left)} to go` : 'Goal reached');
+  }).join('')}</section>`;
+  const debts = !S.debts.length ? '' : `<section class="card" id="homeDebts"><h3>Pay back</h3>${byAt(S.debts).map(d => {
+    const i = debtInfo(d);
+    return progItem('goto', d.id, d.to, i.paid, i.total, i.left > 0 ? `${rm(i.left)} left` : 'All paid back');
+  }).join('')}</section>`;
+
   return `${hints.length ? `<section class="card hint">${hints.map(h => `<div>${h}</div>`).join('')}</section>` : ''}
     <section class="card"><div class="label">Left in ${esc(monthName(m))}</div><div class="big ${cls(left)}" id="leftAll">${rm(left)}</div>
       <div class="split"><span>Salary <b>${rm(inc)}</b></span><span>Commitments <b>${rm(com)}</b></span><span>Spent <b>${rm(sp)}</b></span></div>
       <button class="btn primary wide" style="margin:0" data-act="add-spend">+ Add spending</button></section>
     ${people}
-    ${budget}
+    ${goals}
+    ${debts}
     <section class="card" id="forecast"><h3>Savings forecast</h3>
       <div class="fc"><div><small>3 months</small><b class="${cls(f.in3)}">${rm0(f.in3)}</b></div><div><small>6 months</small><b class="${cls(f.in6)}">${rm0(f.in6)}</b></div><div><small>12 months</small><b class="${cls(f.in12)}">${rm0(f.in12)}</b></div></div>
       <p class="muted" style="margin:0">About <b>${rm(f.monthly)}</b> a month: salary ${rm(f.inc)} − commitments ${rm(f.com)} − usual spending ${rm(f.u.amt)} (${esc(f.u.why)}). Counted from next month.</p></section>`;
@@ -422,19 +458,26 @@ function viewBudget() {
 
 function viewGoals() {
   const f = forecast();
-  const cards = [...S.goals].sort((a, b) => (a.at || 0) - (b.at || 0)).map(g => {
+  const cards = byAt(S.goals).map(g => {
     const i = goalInfo(g, f.monthly);
     const adds = S.goalAdds.filter(a => a.goal === g.id).sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0)).slice(0, 3);
-    return `<section class="card goal" data-goal="${esc(g.id)}"><button class="item col" style="padding-top:0" data-act="edit-goal" data-id="${esc(g.id)}">
-        <span class="line"><b>${esc(g.name)}</b><span class="amt">${rm(i.saved)} <small class="inline">of ${rm(i.target)}</small></span></span>
-        ${bar(i.saved, i.target, 'goal')}${i.left > 0 ? `<small>${rm(i.left)} to go</small>` : ''}</button>
+    return `<section class="card goal" data-goal="${esc(g.id)}">${progItem('edit-goal', g.id, g.name, i.saved, i.target, i.left > 0 ? `${rm(i.left)} to go` : '', true)}
       <p class="goal-time">${esc(i.time)}</p>
       ${adds.length ? `<div class="adds">${adds.map(a => `<div class="row"><span>${esc(dayName(a.date))} · ${esc(nameOf(a.who))}</span><span><b>${rm(a.amount)}</b><button data-act="del-add" data-id="${esc(a.id)}" aria-label="Delete this amount">&times;</button></span></div>`).join('')}</div>` : ''}
       <button class="btn small" data-act="add-money" data-id="${esc(g.id)}">+ Add money</button></section>`;
   }).join('');
-  return `<button class="btn primary wide" data-act="add-goal">+ Add goal</button>
+  const debts = byAt(S.debts).map(d => {
+    const i = debtInfo(d), pays = paysOf(d).slice(0, 3);
+    return `<section class="card debt" data-debt="${esc(d.id)}">${progItem('edit-debt', d.id, d.to, i.paid, i.total, i.left > 0 ? `${rm(i.left)} left · ${i.pct}% paid` : '', true)}
+      <p class="goal-time">${esc(i.time)}</p>
+      ${pays.length ? `<div class="adds">${pays.map(p => `<div class="row"><span>${esc(dayName(p.date))} · ${esc(nameOf(p.who))}</span><span><b>${rm(p.amount)}</b><button data-act="del-pay" data-id="${esc(p.id)}" aria-label="Delete this payment">&times;</button></span></div>`).join('')}</div>` : ''}
+      <div class="line">${i.left > 0 ? `<button class="btn small" data-act="add-pay" data-id="${esc(d.id)}">+ Add payment</button>` : '<span></span>'}<button class="btn small" data-act="share-debt" data-id="${esc(d.id)}">Share</button></div></section>`;
+  }).join('');
+  return `<div class="sec"><h2>Savings goals</h2><button class="btn small primary" data-act="add-goal">+ Add goal</button></div>
     ${f.monthly > 0 ? `<p class="muted">Your family can save about ${rm(f.monthly)} a month.</p>` : ''}
-    ${cards || '<section class="card"><p class="empty">No goals yet. For example: holiday, kids\' education, emergency fund.</p></section>'}`;
+    ${cards || '<section class="card"><p class="empty">No goals yet. For example: holiday, kids\' education, emergency fund.</p></section>'}
+    <div class="sec next" id="payback"><h2>Pay back</h2><button class="btn small primary" data-act="add-debt">+ Add debt</button></div>
+    ${debts || '<section class="card"><p class="empty">Nothing to pay back. For example: money you owe your parents.</p></section>'}`;
 }
 
 function viewPeople() {
@@ -602,6 +645,129 @@ function moneyForm(g) {
   });
 }
 
+function debtForm(d) {
+  sheet({
+    title: d ? 'Edit debt' : 'Add debt',
+    note: 'Money you owe and want to pay back. The name goes in the share message: "Assalamualaikum Mak, Bapak."',
+    fields: [
+      { k: 'to', label: 'Who you owe', type: 'text', value: d ? d.to : '', req: true, ph: 'e.g. Mak, Bapak' },
+      { k: 'total', label: 'Total owed (RM)', type: 'money', value: d ? d.total : '', req: true },
+      { k: 'start', label: 'Paid back already (RM)', type: 'money', value: d && d.start ? d.start : '' },
+      { k: 'monthly', label: 'Plan to pay per month (RM)', type: 'money', value: d && d.monthly ? d.monthly : '' }
+    ],
+    del: d && (() => { put(S.store.del('debts', d.id)); S.debtPays.filter(p => p.debt === d.id).forEach(p => put(S.store.del('debtPays', p.id))); }),
+    delAsk: d && `Delete "${d.to}" and all its payments?`,
+    save: v => {
+      if (v.start > v.total) return 'Paid back already: more than the total owed.';
+      const x = { to: v.to, total: v.total, start: v.start, monthly: v.monthly };
+      put(d ? S.store.set('debts', d.id, x) : S.store.add('debts', { ...x, at: Date.now() }));
+    }
+  });
+}
+
+function payForm(d) {
+  const left = debtInfo(d).left;
+  sheet({
+    title: 'Payment to ' + d.to,
+    note: `${rm(left)} left to pay.`,
+    fields: [
+      { k: 'amount', label: 'Amount (RM)', type: 'money', value: '', req: true },
+      { k: 'who', label: 'Who paid', type: 'select', options: memberOpts(), value: S.me },
+      { k: 'date', label: 'Date', type: 'date', value: today(), req: true }
+    ],
+    save: v => {
+      if (v.amount > left) return `Amount: only ${rm(left)} is left to pay.`;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return 'Date: pick a date.';
+      put(S.store.add('debtPays', { debt: d.id, amount: v.amount, who: v.who, date: v.date, at: Date.now() }));
+    }
+  });
+}
+
+// ---------- share pay-back progress (picture + Malay message) ----------
+// latest payment news: all paid today, else the last payment and its date
+function payNews(d) {
+  const ps = paysOf(d);
+  if (!ps.length) return '';
+  const t = sum(ps.filter(p => p.date === today()), p => p.amount);
+  return t > 0 ? `Hari ini bayar ${rmS(t)}` : `Bayaran terakhir ${rmS(ps[0].amount)} pada ${msDate(ps[0].date)}`;
+}
+
+function shareText(d) {
+  const i = debtInfo(d), news = payNews(d), lines = [`Assalamualaikum ${d.to}.`];
+  if (news) lines.push(news + '.');
+  if (i.left <= 0) lines.push(`Alhamdulillah, semua ${rmS(i.total)} sudah dibayar.`);
+  else lines.push(`Sudah bayar ${rmS(i.paid)} daripada ${rmS(i.total)} (${i.pct}%).`, `Baki ${rmS(i.left)}.`);
+  return lines.join('\n');
+}
+
+// 1080 x 1080 picture, always light so it looks the same on any phone
+function debtPicture(d) {
+  const i = debtInfo(d), news = payNews(d), W = 1080, P = 90, c = document.createElement('canvas');
+  c.width = c.height = W;
+  const g = c.getContext('2d'), FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  const INK = '#1c2321', MUTED = '#66706d', BRAND = '#0f766e';
+  // text shrinks until it fits the width
+  const text = (s, y, size, weight, color, right) => {
+    let f = size;
+    g.font = `${weight} ${f}px ${FONT}`;
+    while (g.measureText(s).width > W - 2 * P && f > 24) { f -= 2; g.font = `${weight} ${f}px ${FONT}`; }
+    g.fillStyle = color; g.textAlign = right ? 'right' : 'left'; g.fillText(s, right ? W - P : P, y);
+  };
+  const pill = (x, y, w, h) => { const r = h / 2; g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, W);
+  g.fillStyle = BRAND; g.fillRect(0, 0, W, 14);
+  text('Bayar balik kepada', 170, 44, 400, MUTED);
+  text(d.to, 255, 72, 700, INK);
+  text('Sudah bayar', 400, 44, 400, MUTED);
+  text(rmS(i.paid), 525, 120, 800, BRAND);
+  text(`daripada ${rmS(i.total)}`, 605, 44, 400, MUTED);
+  text(`${i.pct}%`, 605, 52, 700, INK, true);
+  pill(P, 645, W - 2 * P, 48); g.fillStyle = '#e9eeec'; g.fill();
+  g.save(); g.clip(); g.fillStyle = BRAND; g.fillRect(P, 645, (W - 2 * P) * (i.total > 0 ? Math.min(1, i.paid / i.total) : 0), 48); g.restore();
+  if (i.left > 0) text(`Baki ${rmS(i.left)}`, 800, 64, 700, INK);
+  else text('Alhamdulillah, sudah habis dibayar', 800, 56, 700, BRAND);
+  if (news) text(news, 880, 40, 400, MUTED);
+  g.fillStyle = '#e2e7e5'; g.fillRect(P, 950, W - 2 * P, 2);
+  text(`Duit Kita · ${msDate(today())}`, 1010, 32, 400, MUTED);
+  return c.toDataURL('image/png');
+}
+
+const pngFile = (url, name) => {
+  try { const b = atob(url.split(',')[1]), a = new Uint8Array(b.length); for (let k = 0; k < b.length; k++) a[k] = b.charCodeAt(k); return new File([a], name, { type: 'image/png' }); }
+  catch { return null; }
+};
+
+function copyText(s) {
+  const done = ok => toast(ok ? 'Text copied.' : 'Could not copy. Press and hold the text to copy it.');
+  const old = () => { const t = document.createElement('textarea'); t.value = s; document.body.appendChild(t); t.select(); let ok = false; try { ok = document.execCommand('copy'); } catch { } t.remove(); return ok; };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(() => done(true), () => done(old()));
+  else done(old());
+}
+
+// preview first, then the phone's share menu (WhatsApp etc.)
+function shareSheet(d) {
+  const msg = shareText(d), png = debtPicture(d), file = pngFile(png, 'bayar-balik.png');
+  const withFile = !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
+  const send = withFile || !!navigator.share
+    ? '<button type="button" class="btn primary" data-share="send">Share</button>'
+    : `<a class="btn primary" href="${png}" download="bayar-balik.png">Save picture</a>`;
+  const box = $('#sheet');
+  box.innerHTML = `<div class="panel" id="sharePanel"><h2>Share with ${esc(d.to)}</h2><img class="share-img" src="${png}" alt="Pay back progress picture"><p class="share-txt">${esc(msg)}</p>
+    <div class="actions"><button type="button" class="btn" data-share="close">Close</button><span class="sp"></span><button type="button" class="btn" data-share="copy">Copy text</button>${send}</div></div>`;
+  box.hidden = false;
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  box.onclick = e => {
+    if (e.target === box) return close();
+    const b = e.target.closest('[data-share]');
+    if (!b) return;
+    if (b.dataset.share === 'close') return close();
+    if (b.dataset.share === 'copy') return copyText(msg);
+    // share() must run straight from the tap: phones refuse it after a delay
+    navigator.share(withFile ? { files: [file], text: msg } : { text: msg }).then(close)
+      .catch(e => { if (!e || e.name !== 'AbortError') toast('Could not share: ' + ((e && e.message) || e)); });
+  };
+}
+
 function salaryForm(p) {
   sheet({
     title: 'Net salary: ' + (p.name || p.id),
@@ -673,6 +839,17 @@ const ACT = {
   'edit-goal': id => { const x = find('goals', id); if (x) goalForm(x); },
   'add-money': id => { const x = find('goals', id); if (x) moneyForm(x); },
   'del-add': id => { if (confirm('Delete this amount?')) put(S.store.del('goalAdds', id)); },
+  'add-debt': () => debtForm(),
+  'edit-debt': id => { const x = find('debts', id); if (x) debtForm(x); },
+  'add-pay': id => { const x = find('debts', id); if (x) payForm(x); },
+  'del-pay': id => { if (confirm('Delete this payment?')) put(S.store.del('debtPays', id)); },
+  'share-debt': id => { const x = find('debts', id); if (x) shareSheet(x); },
+  // from Home: open Goals at that goal or debt
+  goto: id => {
+    S.tab = 'goals'; window.scrollTo(0, 0); render();
+    const el = document.querySelector(`[data-goal="${CSS.escape(id)}"], [data-debt="${CSS.escape(id)}"]`);
+    if (el) el.scrollIntoView({ block: 'center' });
+  },
   salary: id => { const x = find('members', id); if (x) salaryForm(x); },
   'add-commit': id => commitForm(null, id),
   'edit-commit': id => { const x = find('commitments', id); if (x) commitForm(x); },
