@@ -89,6 +89,10 @@
   .item > span:first-child { min-width: 0; }
   .item small { display: block; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
   .item .amt { font-weight: 700; white-space: nowrap; }
+  .item.static { cursor: default; }
+  .item.static b { min-width: 0; overflow-wrap: anywhere; }
+  .item.static .amt { font-variant-numeric: tabular-nums; }
+  .pct { display: inline-block; min-width: 38px; text-align: right; color: var(--muted); font-weight: 400; font-size: 12px; }
   .day { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 0; }
   .card > .day:first-child { margin-top: 0; }
   .empty { color: var(--muted); text-align: center; padding: 14px 8px; margin: 0; }
@@ -330,6 +334,13 @@ const commitsIn = (m, who) => S.commitments.filter(c => (!who || c.who === who) 
 const commitIn = (m, who) => sum(commitsIn(m, who), c => c.amount);
 const spentIn = (m, who) => sum(S.spending.filter(s => s.month === m && (!who || s.who === who)), s => s.amount);
 const catSpent = (id, m) => sum(S.spending.filter(s => s.month === m && s.cat === id), s => s.amount);
+// spending per category in month m, biggest first; deleted categories go together on one line so the total still matches
+const catTotals = m => [
+  ...S.categories.map(c => ({ name: c.name, amt: catSpent(c.id, m) })),
+  { name: 'Removed category', amt: sum(S.spending.filter(s => s.month === m && !S.categories.some(c => c.id === s.cat)), s => s.amount) }
+].filter(c => c.amt > 0).sort((a, b) => b.amt - a.amt || String(a.name).localeCompare(String(b.name)));
+// a part of a total as text; a small part never reads 0%, a big part never reads 100%
+const shareOf = (v, total) => { const p = v * 100 / total; return p < 1 ? '<1%' : p > 99 && v < total ? '>99%' : `${Math.round(p)}%`; };
 const goalSaved = g => Math.round(((+g.start || 0) + sum(S.goalAdds.filter(a => a.goal === g.id), a => a.amount)) * 100) / 100;
 // money to pay back: "paid already" + every payment, newest payment first
 const paysOf = d => S.debtPays.filter(p => p.debt === d.id).sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
@@ -412,12 +423,17 @@ function viewHome() {
     return progItem('goto', d.id, d.to, i.paid, i.total, i.left > 0 ? `${rm(i.left)} left` : 'All paid back');
   }).join('')}</section>`;
 
+  // spending per category for the month in view; bar length = share of the month's total
+  const catRows = catTotals(m).map(c => `<div class="item col static"><span class="line"><b>${esc(c.name)}</b><span class="amt">${rm(c.amt)}<span class="pct">${esc(shareOf(c.amt, sp))}</span></span></span>${bar(c.amt, sp, 'goal')}</div>`).join('');
+  const cats = `<section class="card" id="homeCats"><h3 class="line"><span>Spending by category</span><span id="homeCatsTotal">${rm(sp)}</span></h3>${catRows || `<p class="empty">No spending in ${esc(monthName(m))}.</p>`}</section>`;
+
   return `${hints.length ? `<section class="card hint">${hints.map(h => `<div>${h}</div>`).join('')}</section>` : ''}
     <section class="card"><div class="label">Left in ${esc(monthName(m))}</div><div class="big ${cls(left)}" id="leftAll">${rm(left)}</div>
       <div class="split"><span>Salary <b>${rm(inc)}</b></span><span>Commitments <b>${rm(com)}</b></span><span>Spent <b>${rm(sp)}</b></span></div>
       <button class="btn primary wide" style="margin:0" data-act="add-spend">+ Add spending</button></section>
     ${people}
     ${goals}
+    ${cats}
     ${debts}
     <section class="card" id="forecast"><h3>Savings forecast</h3>
       <div class="fc"><div><small>3 months</small><b class="${cls(f.in3)}">${rm0(f.in3)}</b></div><div><small>6 months</small><b class="${cls(f.in6)}">${rm0(f.in6)}</b></div><div><small>12 months</small><b class="${cls(f.in12)}">${rm0(f.in12)}</b></div></div>
