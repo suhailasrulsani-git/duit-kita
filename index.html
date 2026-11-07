@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Duit Kita</title>
-<meta name="description" content="Family money: salary, commitments, spending, budget, savings goals and money to pay back.">
+<meta name="description" content="Family money: salary, commitments, spending, budget, savings goals, money to pay back and family events.">
 <meta name="theme-color" content="#0f766e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -117,6 +117,37 @@
   .share-img { display: block; width: 100%; max-width: 300px; height: auto; margin: 0 auto; border: 1px solid var(--line); border-radius: 12px; }
   .share-txt { white-space: pre-wrap; font-size: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin: 12px 0 0; }
 
+  .item small.neg { color: var(--bad); }
+  .evrow b { min-width: 0; overflow-wrap: anywhere; }
+  .back { margin-bottom: 12px; }
+  .ev-prog { margin-top: 4px; }
+  .ev-prog small { display: block; color: var(--muted); font-size: 12px; }
+
+  .cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+  .cal .wd { text-align: center; font-size: 12px; color: var(--muted); padding-bottom: 4px; }
+  .cal button { position: relative; min-height: 44px; padding: 0 0 6px; border: 0; border-radius: 8px; background: none; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .cal button.ev { background: var(--soft); font-weight: 700; }
+  .cal button.now { box-shadow: inset 0 0 0 1.5px var(--brand); }
+  .cal button.sel { background: var(--brand); color: var(--brand-ink); font-weight: 700; }
+  .cal button i { position: absolute; left: 50%; bottom: 5px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--ink); }
+  .cal button i.late { background: var(--bad); }
+  .cal button.sel i { background: var(--brand-ink); }
+  .cal-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+  .cal-key span { display: inline-flex; align-items: center; gap: 5px; }
+  .cal-key .k-ev { width: 14px; height: 14px; border-radius: 4px; background: var(--soft); border: 1px solid var(--line); }
+  .cal-key .k-due { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+  .cal-key .k-due.late { background: var(--bad); }
+
+  .todo { display: flex; align-items: center; border-top: 1px solid var(--line); }
+  .card > .todo:first-child { border-top: 0; }
+  .todo .tick { flex: none; display: grid; place-items: center; width: 44px; height: 44px; margin-left: -10px; padding: 0; border: 0; background: none; cursor: pointer; }
+  .todo .tick i { display: block; width: 22px; height: 22px; border: 1.5px solid var(--muted); border-radius: 6px; }
+  .todo .tick[aria-pressed="true"] i { background: var(--brand); border-color: var(--brand); }
+  .todo .tick[aria-pressed="true"] i::after { content: ''; display: block; width: 6px; height: 11px; margin: 2px auto 0; border: solid var(--brand-ink); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .todo .item { flex: 1; min-width: 0; border-top: 0; }
+  .todo .item b { overflow-wrap: anywhere; }
+  .todo.done .item b { color: var(--muted); font-weight: 400; text-decoration: line-through; }
+
   .tabs { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 5; }
   .tabs .in { display: flex; max-width: 560px; margin: 0 auto; }
   .tabs button { flex: 1; border: 0; background: none; padding: 8px 0 10px; font-size: 11px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; min-height: 56px; min-width: 0; }
@@ -160,6 +191,7 @@
   <button data-act="tab" data-id="spend"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3"/></svg>Spend</button>
   <button data-act="tab" data-id="budget"><svg viewBox="0 0 24 24"><path d="M11 3.1A9 9 0 1 0 20.9 13H11z"/><path d="M14 3.5A9 9 0 0 1 20.5 10H14z"/></svg>Budget</button>
   <button data-act="tab" data-id="goals"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>Goals</button>
+  <button data-act="tab" data-id="events"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>Events</button>
   <button data-act="tab" data-id="people"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><circle cx="17" cy="9" r="2.5"/><path d="M16.5 14.6A5 5 0 0 1 21.5 20"/></svg>People</button>
 </div></nav>
 <div class="sheet" id="sheet" hidden></div>
@@ -211,7 +243,7 @@ function toast(msg) {
 const put = p => Promise.resolve(p).catch(e => toast('Not saved: ' + ((e && (e.code || e.message)) || e)));
 
 // ---------- data stores ----------
-// Collections under households/main: members, categories, commitments, spending, goals, goalAdds, debts, debtPays
+// Collections under households/main: members, categories, commitments, spending, goals, goalAdds, debts, debtPays, events, eventItems
 
 // Demo store: this phone only. Used while firebase-config.js still has the PASTE values.
 function demoStore() {
@@ -278,10 +310,11 @@ async function firebaseStore(cfg) {
 }
 
 // ---------- state ----------
-const LISTS = ['members', 'categories', 'commitments', 'goals', 'goalAdds', 'debts', 'debtPays'];
+const LISTS = ['members', 'categories', 'commitments', 'goals', 'goalAdds', 'debts', 'debtPays', 'events', 'eventItems'];
 const S = {
   store: null, user: null, me: '', month: thisMonth(), tab: 'home', who: 'all', lastCat: '',
-  members: [], categories: [], commitments: [], spending: [], goals: [], goalAdds: [], debts: [], debtPays: [],
+  calMonth: thisMonth(), day: '', eventId: '',
+  members: [], categories: [], commitments: [], spending: [], goals: [], goalAdds: [], debts: [], debtPays: [], events: [], eventItems: [],
   unsub: [], unsubSpend: null, spendFrom: ''
 };
 
@@ -314,7 +347,7 @@ function watchSpending() {
 function stopWatch() {
   S.unsub.forEach(u => u()); S.unsub = [];
   if (S.unsubSpend) S.unsubSpend();
-  S.unsubSpend = null; S.spendFrom = '';
+  S.unsubSpend = null; S.spendFrom = ''; S.eventId = '';
   for (const name of [...LISTS, 'spending']) S[name] = [];
 }
 
@@ -346,6 +379,31 @@ const goalSaved = g => Math.round(((+g.start || 0) + sum(S.goalAdds.filter(a => 
 const paysOf = d => S.debtPays.filter(p => p.debt === d.id).sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
 const debtPaid = d => Math.round(((+d.start || 0) + sum(paysOf(d), p => p.amount)) * 100) / 100;
 const byAt = list => [...list].sort((a, b) => (a.at || 0) - (b.at || 0));
+
+// events: start date, optional end date, "prepare before" date (empty = the start date)
+// items: their before date is empty while they follow the event's "prepare before" date
+const isDate = d => /^\d{4}-\d{2}-\d{2}$/.test(d);
+const dayFmt = (d, o) => { const [a, b, c] = d.split('-').map(Number); return new Date(a, b - 1, c).toLocaleDateString('en-MY', o); };
+const fullDay = d => dayFmt(d, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const shortDay = d => dayFmt(d, { day: 'numeric', month: 'short', year: 'numeric' });
+const daysTo = d => { const u = s => { const [a, b, c] = s.split('-').map(Number); return Date.UTC(a, b - 1, c); }; return Math.round((u(d) - u(today())) / 864e5); };
+const evEnd = e => e.end || e.date;
+const evBefore = e => e.before || e.date;
+const itemBefore = (i, e) => i.before || evBefore(e);
+const itemsOf = e => S.eventItems.filter(i => i.event === e.id);
+const evPast = e => evEnd(e) < today();
+const itemLate = (i, e) => !i.done && itemBefore(i, e) < today() && !evPast(e);
+const evSorted = () => [...S.events].sort((a, b) => a.date.localeCompare(b.date) || (a.at || 0) - (b.at || 0));
+const evWhen = e => e.end ? `${shortDay(e.date)} to ${shortDay(e.end)}` : fullDay(e.date);
+const evSoon = e => { if (evPast(e)) return ''; const n = daysTo(e.date); return n > 1 ? `In ${n} days` : n === 1 ? 'Tomorrow' : n === 0 ? 'Today' : 'On now'; };
+const evOpen = () => S.tab === 'events' && S.eventId ? S.events.find(e => e.id === S.eventId) : null;
+// the day picked on the calendar; today when nothing is picked in this month
+const calSel = () => S.day && S.day.slice(0, 7) === S.calMonth ? S.day : S.calMonth === thisMonth() ? today() : '';
+// what is on one day: events that cover it + items not done yet with this before date
+const dayInfo = d => ({
+  events: evSorted().filter(e => e.date <= d && d <= evEnd(e)),
+  items: evSorted().flatMap(e => itemsOf(e).filter(i => !i.done && itemBefore(i, e) === d).map(i => ({ i, e })))
+});
 
 // usual monthly spending: average of the last 3 full months that have spending, else the budget, else this month so far
 function usualSpend() {
@@ -496,6 +554,76 @@ function viewGoals() {
     ${debts || '<section class="card"><p class="empty">Nothing to pay back. For example: money you owe your parents.</p></section>'}`;
 }
 
+// "3 of 8 done", or a short note when the event has no items
+function evProgress(e) {
+  const list = itemsOf(e), done = list.filter(i => i.done).length, late = list.filter(i => itemLate(i, e)).length;
+  if (!list.length) return '<small>Nothing added yet</small>';
+  return `${bar(done, list.length, 'goal')}<small>${done} of ${list.length} done${late ? ` · <span class="neg">${late} late</span>` : ''}</small>`;
+}
+
+const evRow = e => `<button class="item col evrow" data-act="open-event" data-id="${esc(e.id)}"><span class="line"><b>${esc(e.name)}</b><span class="amt">${esc(evSoon(e))}</span></span><small>${esc(evWhen(e))}</small>${evProgress(e)}</button>`;
+
+function calendar(m, sel) {
+  const [y, mo] = m.split('-').map(Number), days = new Date(y, mo, 0).getDate();
+  const lead = (new Date(y, mo - 1, 1).getDay() + 6) % 7; // the week starts on Monday
+  let cells = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => `<div class="wd">${w}</div>`).join('') + '<div></div>'.repeat(lead);
+  for (let k = 1; k <= days; k++) {
+    const d = `${m}-${pad(k)}`, on = dayInfo(d);
+    const c = [on.events.length ? 'ev' : '', d === today() ? 'now' : '', d === sel ? 'sel' : ''].filter(Boolean).join(' ');
+    const said = [fullDay(d), ...on.events.map(e => e.name), on.items.length ? `${plural(on.items.length, 'item')} due` : ''].filter(Boolean).join(', ');
+    const dot = on.items.length ? `<i${on.items.some(x => itemLate(x.i, x.e)) ? ' class="late"' : ''}></i>` : '';
+    cells += `<button class="${c}" data-act="pick-day" data-id="${d}" aria-label="${esc(said)}" aria-pressed="${d === sel}">${k}${dot}</button>`;
+  }
+  return `<div class="cal" id="cal">${cells}</div>
+    <div class="cal-key"><span><i class="k-ev"></i>Event</span><span><i class="k-due"></i>Item due</span><span><i class="k-due late"></i>Late</span></div>`;
+}
+
+function dayPanel(d) {
+  if (!d) return '<section class="card" id="dayPanel"><p class="empty">Tap a day to see what is on it.</p></section>';
+  const on = dayInfo(d);
+  const evs = on.events.map(e => `<button class="item evrow" data-act="open-event" data-id="${esc(e.id)}"><span><b>${esc(e.name)}</b><small>${esc(evWhen(e))}</small></span><span class="amt">${esc(evSoon(e))}</span></button>`);
+  // items due: one line per event, so a long list does not push the rest of the page down
+  const dues = evSorted().map(e => ({ e, list: on.items.filter(x => x.e.id === e.id).map(x => x.i) })).filter(x => x.list.length).map(({ e, list }) => {
+    const names = list.slice(0, 3).map(i => i.name).join(', ') + (list.length > 3 ? ` and ${list.length - 3} more` : '');
+    return `<button class="item evrow" data-act="open-event" data-id="${esc(e.id)}"><span><b>${plural(list.length, 'item')} due for ${esc(e.name)}</b><small>${esc(names)}</small></span>${list.some(i => itemLate(i, e)) ? '<span class="amt neg">Late</span>' : ''}</button>`;
+  });
+  return `<section class="card" id="dayPanel"><div class="day">${esc(fullDay(d))}</div>${[...evs, ...dues].join('') || '<p class="empty">Nothing on this day.</p>'}</section>`;
+}
+
+function viewEventPage(e) {
+  const rows = kind => itemsOf(e).filter(i => i.kind === kind)
+    .sort((a, b) => !!a.done - !!b.done || itemBefore(a, e).localeCompare(itemBefore(b, e)) || (a.at || 0) - (b.at || 0))
+    .map(i => {
+      const late = itemLate(i, e);
+      return `<div class="todo${i.done ? ' done' : ''}" data-item="${esc(i.id)}"><button class="tick" data-act="tick-item" data-id="${esc(i.id)}" aria-pressed="${!!i.done}" aria-label="${esc(i.name)} done"><i></i></button>
+        <button class="item" data-act="edit-item" data-id="${esc(i.id)}"><span><b>${esc(i.name)}</b><small${late ? ' class="neg"' : ''}>${late ? 'Late · ' : ''}Before ${esc(shortDay(itemBefore(i, e)))}</small></span></button></div>`;
+    }).join('');
+  const soon = evSoon(e);
+  return `<button class="btn small back" data-act="close-event">&lsaquo; All events</button>
+    <section class="card" id="evHead">
+      <div class="line"><h3>${esc(e.name)}</h3><button class="btn small" data-act="edit-event" data-id="${esc(e.id)}">Edit</button></div>
+      <div class="row"><span>When</span><b>${esc(evWhen(e))}</b></div>
+      ${soon ? `<div class="row"><span>Starts</span><b>${esc(soon)}</b></div>` : ''}
+      <div class="row"><span>Prepare before</span><b>${esc(shortDay(evBefore(e)))}</b></div>
+      <div class="ev-prog">${evProgress(e)}</div></section>
+    <div class="sec next"><h2>To buy</h2><button class="btn small primary" data-act="add-buy" data-id="${esc(e.id)}">+ Add</button></div>
+    <section class="card" id="listBuy">${rows('buy') || '<p class="empty">Nothing to buy yet.</p>'}</section>
+    <div class="sec next"><h2>To prepare</h2><button class="btn small primary" data-act="add-prep" data-id="${esc(e.id)}">+ Add</button></div>
+    <section class="card" id="listPrep">${rows('prep') || '<p class="empty">Nothing to prepare yet.</p>'}</section>`;
+}
+
+function viewEvents() {
+  const open = evOpen();
+  if (open) return viewEventPage(open);
+  const sel = calSel(), all = evSorted(), next = all.filter(e => !evPast(e)), past = all.filter(e => evPast(e)).reverse();
+  return `<button class="btn primary wide" data-act="add-event">+ Add event</button>
+    <section class="card">${calendar(S.calMonth, sel)}</section>
+    ${dayPanel(sel)}
+    <div class="sec next"><h2>Upcoming</h2></div>
+    <section class="card" id="evNext">${next.map(e => evRow(e)).join('') || `<p class="empty">${all.length ? 'No upcoming events.' : 'No events yet. For example: a family trip, or a visit to your mother-in-law\'s house.'}</p>`}</section>
+    ${past.length ? `<div class="sec next"><h2>Past</h2></div><section class="card" id="evPast">${past.map(e => evRow(e)).join('')}</section>` : ''}`;
+}
+
 function viewPeople() {
   const m = S.month;
   const cards = membersSorted().map(p => {
@@ -516,7 +644,7 @@ function viewPeople() {
       : '<p class="muted">Demo mode. Data stays on this phone only.</p><button class="btn danger" data-act="reset-demo">Clear demo data</button>'}</section>`;
 }
 
-const VIEWS = { home: viewHome, spend: viewSpend, budget: viewBudget, goals: viewGoals, people: viewPeople };
+const VIEWS = { home: viewHome, spend: viewSpend, budget: viewBudget, goals: viewGoals, events: viewEvents, people: viewPeople };
 
 let renderTimer = 0;
 const later = () => { if (!renderTimer) renderTimer = setTimeout(() => { renderTimer = 0; render(); }, 0); };
@@ -524,9 +652,10 @@ const later = () => { if (!renderTimer) renderTimer = setTimeout(() => { renderT
 function render() {
   if (!S.user) return;
   $('#meName').textContent = nameOf(S.me);
-  $('#monthbar').hidden = S.tab === 'goals';
-  $('#mLabel').textContent = monthName(S.month);
-  $('#mNow').hidden = S.month === thisMonth();
+  const barMonth = S.tab === 'events' ? S.calMonth : S.month;
+  $('#monthbar').hidden = S.tab === 'goals' || !!evOpen();
+  $('#mLabel').textContent = monthName(barMonth);
+  $('#mNow').hidden = barMonth === thisMonth();
   document.querySelectorAll('#tabs [data-id]').forEach(b => b.classList.toggle('on', b.dataset.id === S.tab));
   $('#view').innerHTML = VIEWS[S.tab]();
 }
@@ -557,11 +686,12 @@ function sheet(o) {
     return `<label for="${id}">${esc(f.label)}</label>${input}`;
   };
   box.innerHTML = `<form class="panel" novalidate><h2>${esc(o.title)}</h2>${o.note ? `<p class="note">${esc(o.note)}</p>` : ''}${o.fields.map(field).join('')}
-    <p class="err"></p><div class="actions">${o.del ? `<button type="button" class="btn danger" data-sheet="del">${esc(o.delLabel || 'Delete')}</button>` : ''}<span class="sp"></span><button type="button" class="btn" data-sheet="close">Cancel</button><button class="btn primary">Save</button></div></form>`;
+    <p class="err"></p><div class="actions">${o.del ? `<button type="button" class="btn danger" data-sheet="del">${esc(o.delLabel || 'Delete')}</button>` : ''}<span class="sp"></span><button type="button" class="btn" data-sheet="close">Cancel</button>${o.again ? '<button type="button" class="btn" data-sheet="again">Add another</button>' : ''}<button class="btn primary">Save</button></div></form>`;
   box.hidden = false;
   const form = box.firstElementChild, err = form.querySelector('.err');
   const close = () => { box.hidden = true; box.innerHTML = ''; };
   const fail = (msg, el) => { err.textContent = msg; if (el) el.focus(); };
+  let again = false;
   form.onsubmit = e => {
     e.preventDefault();
     const v = {};
@@ -577,16 +707,19 @@ function sheet(o) {
     const msg = o.save(v);
     if (typeof msg === 'string') return fail(msg);
     close();
+    if (again) o.again(v);
   };
   form.onclick = e => {
     const b = e.target.closest('[data-sheet]');
     if (!b) return;
     if (b.dataset.sheet === 'close') return close();
+    if (b.dataset.sheet === 'again') { again = true; form.onsubmit(e); again = false; return; }
     if (confirm(o.delAsk || 'Delete this?')) { o.del(); close(); }
   };
   box.onclick = e => { if (e.target === box) close(); };
   const first = form.querySelector('input, select');
   if (first && !first.value) first.focus();
+  return form;
 }
 
 const defaultDate = () => S.month === thisMonth() ? today() : S.month + '-01';
@@ -695,6 +828,71 @@ function payForm(d) {
       if (v.amount > left) return `Amount: only ${rm(left)} is left to pay.`;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) return 'Date: pick a date.';
       put(S.store.add('debtPays', { debt: d.id, amount: v.amount, who: v.who, date: v.date, at: Date.now() }));
+    }
+  });
+}
+
+// ---------- events ----------
+// the event page is a step in the phone's history, so the Back button returns to the list instead of closing the app
+function openEvent(id) { S.eventId = id; history.pushState({ ev: id }, ''); window.scrollTo(0, 0); render(); }
+function closeEvent() {
+  if (!S.eventId) return;
+  S.eventId = '';
+  if (history.state && history.state.ev) history.back();
+}
+
+function eventForm(e) {
+  const start = e ? e.date : calSel() || `${S.calMonth}-01`, n = e ? itemsOf(e).length : 0;
+  const form = sheet({
+    title: e ? 'Edit event' : 'Add event',
+    fields: [
+      { k: 'name', label: 'Event', type: 'text', value: e ? e.name : '', req: true, ph: "e.g. Japan trip, mother-in-law's house" },
+      { k: 'date', label: 'Start date', type: 'date', value: start, req: true },
+      { k: 'end', label: 'End date (optional)', type: 'date', value: e ? e.end : '' },
+      { k: 'before', label: 'Prepare before (default: the start date)', type: 'date', value: e ? evBefore(e) : start }
+    ],
+    del: e && (() => {
+      put(S.store.del('events', e.id));
+      itemsOf(e).forEach(i => put(S.store.del('eventItems', i.id)));
+      closeEvent(); later();
+    }),
+    delAsk: e && `Delete "${e.name}"${n ? ` and its ${plural(n, 'item')}` : ''}?`,
+    save: v => {
+      if (!isDate(v.date)) return 'Start date: pick a date.';
+      if (v.end && v.end < v.date) return 'End date: cannot be before the start date.';
+      if (v.before > v.date) return 'Prepare before: cannot be after the start date.';
+      const d = { name: v.name, date: v.date, end: v.end === v.date ? '' : v.end, before: v.before === v.date ? '' : v.before };
+      put(e ? S.store.set('events', e.id, d) : S.store.add('events', { ...d, at: Date.now() }));
+      S.calMonth = v.date.slice(0, 7); S.day = v.date; later();
+      // an item with its own date keeps it, even if the event now starts earlier
+      const after = e ? itemsOf(e).filter(i => !i.done && i.before > v.date).length : 0;
+      if (after) toast(`${plural(after, 'item')} now dated after the start date. Check the dates.`);
+    }
+  });
+  // "prepare before" follows the start date until you pick another date
+  const startEl = form.elements.namedItem('date'), beforeEl = form.elements.namedItem('before');
+  let last = startEl.value;
+  startEl.addEventListener('change', () => { if (!beforeEl.value || beforeEl.value === last) beforeEl.value = startEl.value; last = startEl.value; });
+}
+
+function itemForm(ev, kind, it, lastBefore) {
+  const buy = kind === 'buy';
+  sheet({
+    title: it ? 'Edit item' : buy ? 'Add to buy' : 'Add to prepare',
+    note: `Keep the event's date (${shortDay(evBefore(ev))}) and this item moves with the event.`,
+    fields: [
+      { k: 'name', label: buy ? 'What to buy' : 'What to prepare', type: 'text', value: it ? it.name : '', req: true, ph: buy ? 'e.g. Power bank' : 'e.g. Renew passport' },
+      { k: 'before', label: 'Before', type: 'date', value: it ? itemBefore(it, ev) : lastBefore || evBefore(ev) },
+      ...(it ? [{ k: 'kind', label: 'List', type: 'select', options: [['buy', 'To buy'], ['prep', 'To prepare']], value: it.kind }] : [])
+    ],
+    del: it && (() => put(S.store.del('eventItems', it.id))),
+    delAsk: it && `Delete "${it.name}"?`,
+    again: !it && (v => { toast('Added: ' + v.name); itemForm(ev, kind, null, v.before); }),
+    save: v => {
+      if (v.before > ev.date) return `Before: cannot be after the event starts (${shortDay(ev.date)}).`;
+      const before = !v.before || v.before === evBefore(ev) ? '' : v.before;
+      put(it ? S.store.set('eventItems', it.id, { name: v.name, before, kind: v.kind })
+        : S.store.add('eventItems', { event: ev.id, kind, name: v.name, before, done: false, at: Date.now() }));
     }
   });
 }
@@ -844,8 +1042,14 @@ function personForm(p) {
 // ---------- clicks ----------
 const find = (list, id) => S[list].find(x => x.id === id);
 const ACT = {
-  tab: id => { S.tab = id; window.scrollTo(0, 0); render(); },
-  month: id => { S.month = id === '0' ? thisMonth() : addM(S.month, +id); watchSpending(); render(); },
+  tab: id => { closeEvent(); S.tab = id; window.scrollTo(0, 0); render(); },
+  month: id => {
+    const move = m => id === '0' ? thisMonth() : addM(m, +id);
+    // the calendar keeps its own month: looking ahead does not move Home, Spend or the other money tabs
+    if (S.tab === 'events') S.calMonth = move(S.calMonth);
+    else { S.month = move(S.month); watchSpending(); }
+    render();
+  },
   who: id => { S.who = id; render(); },
   'add-spend': () => spendForm(),
   'edit-spend': id => { const x = find('spending', id); if (x) spendForm(x); },
@@ -866,6 +1070,15 @@ const ACT = {
     const el = document.querySelector(`[data-goal="${CSS.escape(id)}"], [data-debt="${CSS.escape(id)}"]`);
     if (el) el.scrollIntoView({ block: 'center' });
   },
+  'pick-day': id => { S.day = id; render(); },
+  'add-event': () => eventForm(),
+  'edit-event': id => { const x = find('events', id); if (x) eventForm(x); },
+  'open-event': id => openEvent(id),
+  'close-event': () => { closeEvent(); window.scrollTo(0, 0); render(); },
+  'add-buy': id => { const x = find('events', id); if (x) itemForm(x, 'buy'); },
+  'add-prep': id => { const x = find('events', id); if (x) itemForm(x, 'prep'); },
+  'edit-item': id => { const i = find('eventItems', id), e = i && find('events', i.event); if (e) itemForm(e, i.kind, i); },
+  'tick-item': id => { const i = find('eventItems', id); if (i) put(S.store.set('eventItems', id, { done: !i.done })); },
   salary: id => { const x = find('members', id); if (x) salaryForm(x); },
   'add-commit': id => commitForm(null, id),
   'edit-commit': id => { const x = find('commitments', id); if (x) commitForm(x); },
@@ -887,6 +1100,11 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !$('#sheet').hidden) { $('#sheet').hidden = true; $('#sheet').innerHTML = ''; }
+});
+window.addEventListener('popstate', e => {
+  S.eventId = (e.state && e.state.ev) || '';
+  $('#sheet').hidden = true; $('#sheet').innerHTML = '';
+  if (S.user) render();
 });
 
 // ---------- start ----------
